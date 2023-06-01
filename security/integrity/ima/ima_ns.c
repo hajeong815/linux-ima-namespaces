@@ -7,6 +7,7 @@
  */
 
 #include <linux/ima.h>
+#include <linux/cred.h>
 
 #include "ima.h"
 
@@ -15,17 +16,24 @@ static struct kmem_cache *imans_cachep;
 struct ima_namespace *create_ima_ns(void)
 {
 	struct ima_namespace *ns;
+	struct user_namespace *userns = current_user_ns();
 
+	unsigned long userns_id = userns->ns.inum;	
 	ns = kmem_cache_zalloc(imans_cachep, GFP_KERNEL);
 	if (!ns)
 		return ERR_PTR(-ENOMEM);
-
+	pr_info("ima namespace created. The namespace is: %lu\n", userns_id);
+	
 	return ns;
 }
 
 /* destroy_ima_ns() must only be called after ima_init_namespace() was called */
 static void destroy_ima_ns(struct ima_namespace *ns)
 {
+	struct user_namespace *userns = current_user_ns();
+	unsigned long userns_id = userns->ns.inum;
+
+	pr_info("Free ima namespace. The namespace was: %lu\n", userns_id);
 	clear_bit(IMA_NS_ACTIVE, &ns->ima_ns_flags);
 	unregister_blocking_lsm_notifier(&ns->ima_lsm_policy_notifier);
 	kfree(ns->arch_policy_entry);

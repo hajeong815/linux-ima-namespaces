@@ -557,6 +557,7 @@ static inline void user_ns_set_ima_ns(struct user_namespace *user_ns,
 				      struct ima_namespace *ns)
 {
 	/* Pairs with smp_load_acquire() in ima_ns_from_user_ns() */
+	pr_info("ima ns set ima ns");
 	smp_store_release(&user_ns->ima_ns, ns);
 }
 

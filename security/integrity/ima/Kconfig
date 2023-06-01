@@ -338,3 +338,18 @@ config IMA_DISABLE_HTABLE
 	default n
 	help
 	   This option disables htable to allow measurement of duplicate records.
+
+config IMA_MEASURE_TRUSTED_KEYS
+	bool "Measure the keys in the Trusted Keys keyring"
+	depends on IMA
+	default n
+	help
+	   This option enables measurement of the public key of
+	   the keys in the Trusted Keys keyring during
+	   IMA initialization. Depending on the kernel configuration
+	   the trusted keyring could be one of the following:
+	     if CONFIG_SECONDARY_TRUSTED_KEYRING is enabled then
+		secondary_trusted_keys
+	     else
+		builtin_trusted_keys
+

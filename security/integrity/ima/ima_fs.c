@@ -404,8 +404,10 @@ static int ima_open_policy(struct inode *inode, struct file *filp)
 #endif
 	struct ima_namespace *ns = ima_ns_from_file(filp);
 
-	if (!ns_is_active(ns))
+	if (!ns_is_active(ns)) {
+		pr_info("ima namespace policy update failed. Permission denied.\n");
 		return -EACCES;
+	}
 
 	if (!(filp->f_flags & O_WRONLY)) {
 #ifndef	CONFIG_IMA_READ_POLICY
@@ -418,8 +420,10 @@ static int ima_open_policy(struct inode *inode, struct file *filp)
 		return seq_open(filp, &ima_policy_seqops);
 #endif
 	}
-	if (test_and_set_bit(IMA_FS_BUSY, &ns->ima_fs_flags))
+	if (test_and_set_bit(IMA_FS_BUSY, &ns->ima_fs_flags)) {
+		pr_info("ima namespace policy update failed. No secondary writes are allowed.\n");
 		return -EBUSY;
+	}
 	return 0;
 }
 
@@ -443,12 +447,15 @@ static int ima_release_policy(struct inode *inode, struct file *file)
 		ns->valid_policy = 0;
 	}
 
-	if (ns == &init_ima_ns) {
-		pr_info("policy update %s\n", cause);
+	/*if (ns == &init_ima_ns) {
+		pr_info("ima policy update %s\n", cause);
 		integrity_audit_msg(AUDIT_INTEGRITY_STATUS, NULL, NULL,
 				    "policy_update", cause, !ns->valid_policy,
 				    0);
-	}
+	}*/
+	pr_info("ima policy update %s\n", cause);
+	integrity_audit_msg(AUDIT_INTEGRITY_STATUS, NULL, NULL,
+			"policy_update", cause, !ns->valid_policy,0);
 
 	if (!ns->valid_policy) {
 		ima_delete_rules(ns);
@@ -457,6 +464,8 @@ static int ima_release_policy(struct inode *inode, struct file *file)
 		return 0;
 	}
 
+	//pr_info("policy update %s\n", cause);
+	//integrity_audit_msg(AUDIT_INTEGRITY_STATUS, NULL, NULL,		"policy_update", cause, !ns->valid_policy, 0);
 	ima_update_policy(ns);
 #if !defined(CONFIG_IMA_WRITE_POLICY) && !defined(CONFIG_IMA_READ_POLICY)
 	securityfs_remove(ns->ima_policy);
@@ -500,7 +509,7 @@ static ssize_t ima_write_active(struct file *filp,
 	char *kbuf;
 	int err;
 
-	if (ns_is_active(ns))
+	if (ns_is_active(ns)) 
 		return -EBUSY;
 
 	/* accepting '1\n' and '1\0' and no partial writes */
@@ -523,6 +532,7 @@ static ssize_t ima_write_active(struct file *filp,
 	if (err)
 		return -EINVAL;
 
+	pr_info("ima namespace activated.\n");
 	return count;
 }
 
@@ -553,6 +563,7 @@ int ima_fs_ns_init(struct user_namespace *user_ns, struct dentry *root)
 	 * ima_fs_ns_init(), so we don't need any memory barriers here, i.e.
 	 * user_ns->ima_ns can't change while we're in here.
 	 */
+	pr_info("ima namespace initialize.\n");
 	if (!ns) {
 		ns = create_ima_ns();
 		if (IS_ERR(ns))
@@ -659,6 +670,7 @@ out:
 free_ns:
 	if (!ima_ns_from_user_ns(user_ns))
 		ima_free_ima_ns(ns);
+	pr_info("ima namespace freed.\n");
 
 	return ret;
 }

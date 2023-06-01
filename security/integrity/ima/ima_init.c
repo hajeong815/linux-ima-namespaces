@@ -113,6 +113,74 @@ void __init ima_load_x509(void)
 }
 #endif
 
+#ifdef CONFIG_IMA_MEASURE_TRUSTED_KEYS
+int __init store_trusted_keyring_key(void *key,
+		u32 keylen, const char *key_description)
+{
+	static const char op[] = "store_trusted_keyring_key";
+	const char *audit_cause = "ENOMEM";
+	struct ima_template_entry *entry;
+	struct ima_namespace *ns;
+	struct integrity_iint_cache tmp_iint, *iint = &tmp_iint;
+	struct ima_event_data event_data = {iint, NULL, key_description,
+		NULL, 0, NULL};
+	int result = -ENOMEM;
+	int violation = 0;
+	struct {
+		struct ima_digest_data hdr;
+		char digest[IMA_MAX_DIGEST_SIZE];
+	} hash;
+	if (key == NULL || keylen == 0)
+		return 0;
+	memset(iint, 0, sizeof(*iint));
+	memset(&hash, 0, sizeof(hash));
+	iint->ima_hash = &hash.hdr;
+	iint->ima_hash->algo = HASH_ALGO_SHA1;
+	iint->ima_hash->length = SHA1_DIGEST_SIZE;
+	result = ima_calc_buffer_hash(key, keylen, &hash.hdr);
+	if (result < 0) {
+		audit_cause = "hashing_error";
+		goto err_out;
+	}
+	result = ima_alloc_init_template(&event_data, &entry, NULL);
+	if (result < 0) {
+		audit_cause = "alloc_entry";
+		goto err_out;
+	}
+	result = ima_store_template(ns, entry, violation, NULL,
+			key_description,
+			CONFIG_IMA_MEASURE_PCR_IDX);
+	if (result < 0) {
+		ima_free_template_entry(entry);
+		audit_cause = "store_entry";
+		goto err_out;
+	}
+	return 0;
+err_out:
+	integrity_audit_msg(AUDIT_INTEGRITY_PCR, NULL,
+			key_description, op,
+			audit_cause, result, 0);
+	return result;
+}
+int __init ima_add_trusted_keyring_keys(int (*store_trusted_key)(
+			void *key,
+			u32 keylen,
+			const char *key_description))
+{
+	struct keyring_iterator key_iterator;
+	int rc = 0;
+
+	key_iterator.size = 0;
+	key_iterator.enumerated = 0;
+	key_iterator.iterator = store_trusted_key;
+	rc = keyring_read_trusted_keys(&key_iterator);
+	if (rc < 0)
+		pr_err("Failed %d to read keys in trusted_keys\n", rc);
+	return rc;
+}
+#endif /* CONFIG_IMA_MEASURE_TRUSTED_KEYS */
+
+
 int __init ima_init(void)
 {
 	int rc;

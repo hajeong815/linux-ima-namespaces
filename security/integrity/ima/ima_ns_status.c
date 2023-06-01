@@ -126,7 +126,7 @@ static void unlock_group(enum lk_group group)
 static void ns_status_free(struct ima_namespace *ns,
 			   struct ns_status *ns_status)
 {
-	pr_debug("FREE ns_status: %p\n", ns_status);
+	pr_info("FREE ima ns_status: %p\n", ns_status);
 
 	kmem_cache_free(ns->ns_status_cache, ns_status);
 }
